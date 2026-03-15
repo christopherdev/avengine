@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-slate-900">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autonomous Video Creation Engine</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .log-area { font-family: 'Courier New', monospace; }
+    .task-card { transition: box-shadow 0.2s; }
+    .task-card:hover { box-shadow: 0 0 0 1px rgb(99 102 241 / 0.4); }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .tab-active { border-bottom: 2px solid rgb(99 102 241); color: rgb(224 231 255); }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+<!-- ── Login Overlay ──────────────────────────────────────────────────────── -->
+<div id="login-overlay" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900">
+  <div class="w-full max-w-sm bg-slate-800 rounded-2xl p-8 shadow-2xl space-y-6">
+    <div class="text-center space-y-1">
+      <h1 class="text-2xl font-bold text-indigo-400">Autonomous Video Creation Engine</h1>
+      <p class="text-slate-400 text-sm">Sign in to continue</p>
+    </div>
+    <div id="login-error" class="hidden text-red-400 text-sm bg-red-950/40 border border-red-800 rounded-lg px-4 py-2"></div>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-400 mb-1">Username</label>
+        <input id="login-username" type="text" autocomplete="username"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-400 mb-1">Password</label>
+        <input id="login-password" type="password" autocomplete="current-password"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+      </div>
+      <button id="login-btn"
+        class="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
+        <span id="login-spinner" class="hidden w-4 h-4 border-2 border-white/30 border-t-white rounded-full spin"></span>
+        Sign In
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Change Password Modal ─────────────────────────────────────────────── -->
+<div id="change-pw-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+  <div class="w-full max-w-sm bg-slate-800 rounded-2xl p-7 shadow-2xl space-y-5">
+    <h2 class="text-lg font-semibold text-slate-100">Change Password</h2>
+    <div id="change-pw-error" class="hidden text-red-400 text-sm bg-red-950/40 border border-red-800 rounded-lg px-4 py-2"></div>
+    <div id="change-pw-success" class="hidden text-green-400 text-sm bg-green-950/40 border border-green-800 rounded-lg px-4 py-2">Password updated successfully.</div>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-400 mb-1">Current Password</label>
+        <input id="cp-current" type="password" autocomplete="current-password"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-400 mb-1">New Password</label>
+        <input id="cp-new" type="password" autocomplete="new-password"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-400 mb-1">Confirm New Password</label>
+        <input id="cp-confirm" type="password" autocomplete="new-password"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button id="cp-save-btn"
+        class="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors flex items-center gap-2">
+        <span id="cp-spinner" class="hidden w-4 h-4 border-2 border-white/30 border-t-white rounded-full spin"></span>
+        Update
+      </button>
+      <button id="cp-cancel-btn"
+        class="text-slate-400 hover:text-slate-100 border border-slate-600 hover:border-slate-400 text-sm px-5 py-2 rounded-lg transition-colors">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Main App (hidden until logged in) ─────────────────────────────────── -->
+<div id="app" class="hidden max-w-5xl mx-auto px-4 py-8 space-y-10">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight text-indigo-400">Autonomous Video Creation Engine</h1>
+      <p class="text-slate-400 text-sm">AI-powered video generation pipeline</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <span id="user-badge" class="text-xs text-slate-400 bg-slate-800 border border-slate-700 rounded-full px-3 py-1"></span>
+      <button id="change-pw-btn"
+        class="text-xs text-slate-400 hover:text-slate-100 border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg transition-colors">
+        Change Password
+      </button>
+      <button id="logout-btn"
+        class="text-xs text-slate-400 hover:text-slate-100 border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg transition-colors">
+        Sign Out
+      </button>
+    </div>
+  </header>
+
+  <!-- Tab bar -->
+  <nav class="flex gap-6 border-b border-slate-700 pb-0">
+    <button id="tab-generate-btn" class="tab-btn tab-active pb-3 text-sm font-medium text-slate-300 transition-colors" data-tab="generate">
+      Generate
+    </button>
+    <button class="tab-btn pb-3 text-sm font-medium text-slate-500 hover:text-slate-300 transition-colors" data-tab="history">
+      History
+    </button>
+    <button id="tab-users-btn" class="tab-btn hidden pb-3 text-sm font-medium text-slate-500 hover:text-slate-300 transition-colors" data-tab="users">
+      Users
+    </button>
+  </nav>
+
+  <!-- ── Tab: Generate ───────────────────────────────────────────────────── -->
+  <div id="tab-generate">
+
+    <!-- Generate Form -->
+    <section class="bg-slate-800 rounded-xl p-6 space-y-4">
+      <h2 class="text-lg font-semibold text-slate-100">Generate Video</h2>
+      <div id="form-error" class="hidden text-red-400 text-sm bg-red-950/40 border border-red-800 rounded-lg px-4 py-2"></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-medium text-slate-400 mb-1">Topic</label>
+          <input id="topic" type="text" placeholder="e.g. The history of space exploration"
+            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Duration (seconds)</label>
+          <input id="duration" type="number" min="10" max="300" value="60"
+            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Style <span class="text-slate-500">(optional)</span></label>
+          <select id="style"
+            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+            <option value="">— none —</option>
+            <option value="documentary">Documentary</option>
+            <option value="explainer">Explainer</option>
+            <option value="social_short">Social Short</option>
+            <option value="news_recap">News Recap</option>
+            <option value="tutorial">Tutorial</option>
+            <option value="reels">Reels (9:16)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Aspect Ratio</label>
+          <select id="aspect_ratio"
+            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+            <option value="16:9">16:9 Landscape</option>
+            <option value="9:16">9:16 Portrait (Reels)</option>
+            <option value="1:1">1:1 Square</option>
+          </select>
+        </div>
+      </div>
+      <button id="submit-btn"
+        class="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors flex items-center gap-2">
+        <span id="submit-spinner" class="hidden w-4 h-4 border-2 border-white/30 border-t-white rounded-full spin"></span>
+        Generate
+      </button>
+    </section>
+
+    <!-- Active Tasks -->
+    <section class="space-y-4 mt-8">
+      <h2 class="text-lg font-semibold text-slate-100">Active Tasks</h2>
+      <div id="active-tasks" class="space-y-4">
+        <p id="no-active" class="text-slate-500 text-sm">No active tasks.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ── Tab: History ────────────────────────────────────────────────────── -->
+  <div id="tab-history" class="hidden">
+    <section class="bg-slate-800 rounded-xl p-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-slate-100">Task History</h2>
+        <button id="refresh-btn"
+          class="text-xs text-slate-400 hover:text-slate-100 border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
+          <span id="refresh-spinner" class="hidden w-3 h-3 border-2 border-slate-400/30 border-t-slate-400 rounded-full spin"></span>
+          Refresh
+        </button>
+      </div>
+      <div id="history-error" class="hidden text-red-400 text-sm bg-red-950/40 border border-red-800 rounded-lg px-4 py-2"></div>
+      <div class="overflow-x-auto rounded-lg border border-slate-700">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wide">
+              <th class="text-left px-4 py-3">ID</th>
+              <th class="text-left px-4 py-3">Topic</th>
+              <th class="text-left px-4 py-3">Style</th>
+              <th class="text-left px-4 py-3">Status</th>
+              <th class="text-left px-4 py-3">Created</th>
+              <th class="text-left px-4 py-3">Video</th>
+            </tr>
+          </thead>
+          <tbody id="history-body">
+            <tr><td colspan="6" class="px-4 py-6 text-center text-slate-500">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="pagination" class="flex items-center justify-between text-xs text-slate-400"></div>
+    </section>
+  </div>
+
+  <!-- ── Tab: Users (admin only) ─────────────────────────────────────────── -->
+  <div id="tab-users" class="hidden">
+    <section class="bg-slate-800 rounded-xl p-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-slate-100">User Management</h2>
+        <button id="add-user-btn"
+          class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition-colors">
+          + Add User
+        </button>
+      </div>
+
+      <!-- Add User Form (hidden by default) -->
+      <div id="add-user-form" class="hidden bg-slate-900/60 rounded-xl p-4 space-y-3 border border-slate-700">
+        <h3 class="text-sm font-medium text-slate-300">New User</h3>
+        <div id="add-user-error" class="hidden text-red-400 text-sm bg-red-950/40 border border-red-800 rounded-lg px-3 py-2"></div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Username</label>
+            <input id="new-username" type="text"
+              class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Password</label>
+            <input id="new-password" type="password"
+              class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Role</label>
+            <select id="new-role"
+              class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button id="save-user-btn"
+            class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
+            <span id="save-user-spinner" class="hidden w-3 h-3 border-2 border-white/30 border-t-white rounded-full spin"></span>
+            Save
+          </button>
+          <button id="cancel-user-btn"
+            class="text-xs text-slate-400 hover:text-slate-100 border border-slate-600 hover:border-slate-400 px-4 py-1.5 rounded-lg transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
+
+      <div id="users-error" class="hidden text-red-400 text-sm bg-red-950/40 border border-red-800 rounded-lg px-4 py-2"></div>
+      <div class="overflow-x-auto rounded-lg border border-slate-700">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wide">
+              <th class="text-left px-4 py-3">Username</th>
+              <th class="text-left px-4 py-3">Role</th>
+              <th class="text-left px-4 py-3">Status</th>
+              <th class="text-left px-4 py-3">Daily Limit</th>
+              <th class="text-left px-4 py-3">Created</th>
+              <th class="text-left px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-body">
+            <tr><td colspan="6" class="px-4 py-6 text-center text-slate-500">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+</div><!-- /#app -->
+
+<script>
+const API_BASE = window.location.origin;
+const WS_BASE  = API_BASE.replace(/^http/, "ws");
+const TOKEN_KEY = "avengine_jwt";
+const USER_KEY  = "avengine_user";
+
+// ── XSS-safe HTML escaping ────────────────────────────────────────────────────
+// Always use escHtml() when inserting server-returned or user-provided strings
+// into innerHTML.  Using textContent directly is even safer for plain text.
+const _ESC_MAP = {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":'&#39;'};
+function escHtml(str) {
+  return String(str ?? "").replace(/[&<>"']/g, c => _ESC_MAP[c]);
+}
+
+// ── Auth state ────────────────────────────────────────────────────────────────
+let currentUser = null;
+
+function getToken() { return localStorage.getItem(TOKEN_KEY); }
+
+function authHeaders(extra = {}) {
+  const token = getToken();
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
+function saveSession(tokenResp) {
+  localStorage.setItem(TOKEN_KEY, tokenResp.access_token);
+  localStorage.setItem(USER_KEY, JSON.stringify({
+    id: tokenResp.user_id,
+    username: tokenResp.username,
+    role: tokenResp.role,
+  }));
+  currentUser = { id: tokenResp.user_id, username: tokenResp.username, role: tokenResp.role };
+}
+
+function clearSession() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  currentUser = null;
+}
+
+function loadSession() {
+  const raw = localStorage.getItem(USER_KEY);
+  if (raw) { try { currentUser = JSON.parse(raw); } catch { currentUser = null; } }
+}
+
+// Intercept 401 → force re-login
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, { ...options, headers: authHeaders(options.headers || {}) });
+  if (res.status === 401) {
+    clearSession();
+    showLogin();
+    throw new Error("Session expired. Please sign in again.");
+  }
+  return res;
+}
+
+// ── Login / Logout ────────────────────────────────────────────────────────────
+function showLogin() {
+  document.getElementById("login-overlay").classList.remove("hidden");
+  document.getElementById("app").classList.add("hidden");
+}
+
+function showApp() {
+  document.getElementById("login-overlay").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+
+  // Always reset to the Generate tab so a previous admin session's active tab
+  // (e.g. Users) is never left visible for the next user.
+  document.querySelectorAll(".tab-btn").forEach(b => {
+    b.classList.remove("tab-active", "text-slate-300");
+    b.classList.add("text-slate-500");
+  });
+  document.getElementById("tab-generate-btn").classList.add("tab-active", "text-slate-300");
+  document.getElementById("tab-generate-btn").classList.remove("text-slate-500");
+  document.getElementById("tab-generate").classList.remove("hidden");
+  document.getElementById("tab-history").classList.add("hidden");
+  document.getElementById("tab-users").classList.add("hidden");
+
+  // Show Users tab button only for admins
+  const usersBtn = document.getElementById("tab-users-btn");
+  if (currentUser && currentUser.role === "admin") {
+    usersBtn.classList.remove("hidden");
+  } else {
+    usersBtn.classList.add("hidden");
+  }
+
+  // Update user badge
+  document.getElementById("user-badge").textContent =
+    `${currentUser.username} · ${currentUser.role}`;
+}
+
+document.getElementById("login-btn").addEventListener("click", async () => {
+  const username = document.getElementById("login-username").value.trim();
+  const password = document.getElementById("login-password").value;
+  const errEl    = document.getElementById("login-error");
+  const btn      = document.getElementById("login-btn");
+  const spinner  = document.getElementById("login-spinner");
+
+  errEl.classList.add("hidden");
+  if (!username || !password) {
+    errEl.textContent = "Username and password are required.";
+    errEl.classList.remove("hidden");
+    return;
+  }
+
+  btn.disabled = true;
+  spinner.classList.remove("hidden");
+
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    saveSession(data);
+    showApp();
+    loadHistory();
+    reconnectActiveTasks();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.classList.remove("hidden");
+  } finally {
+    btn.disabled = false;
+    spinner.classList.add("hidden");
+  }
+});
+
+// Allow Enter key on login fields
+["login-username","login-password"].forEach(id => {
+  document.getElementById(id).addEventListener("keydown", e => {
+    if (e.key === "Enter") document.getElementById("login-btn").click();
+  });
+});
+
+document.getElementById("logout-btn").addEventListener("click", () => {
+  clearSession();
+  // Close all active WebSockets
+  Object.values(activeTasks).forEach(s => {
+    clearTimeout(s.reconnectTimer);
+    if (s.ws) s.ws.close();
+  });
+  Object.keys(activeTasks).forEach(k => delete activeTasks[k]);
+  showLogin();
+  document.getElementById("login-password").value = "";
+});
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const tab = btn.dataset.tab;
+
+    document.querySelectorAll(".tab-btn").forEach(b => {
+      b.classList.remove("tab-active", "text-slate-300");
+      b.classList.add("text-slate-500");
+    });
+    btn.classList.add("tab-active", "text-slate-300");
+    btn.classList.remove("text-slate-500");
+
+    document.getElementById("tab-generate").classList.add("hidden");
+    document.getElementById("tab-history").classList.add("hidden");
+    document.getElementById("tab-users").classList.add("hidden");
+    document.getElementById(`tab-${tab}`).classList.remove("hidden");
+
+    if (tab === "history") loadHistory();
+    if (tab === "users")   loadUsers();
+  });
+});
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+const statusColors = {
+  pending:   "bg-yellow-900/60 text-yellow-300 border-yellow-700",
+  queued:    "bg-yellow-900/60 text-yellow-300 border-yellow-700",
+  running:   "bg-blue-900/60   text-blue-300   border-blue-700",
+  done:      "bg-green-900/60  text-green-300  border-green-700",
+  completed: "bg-green-900/60  text-green-300  border-green-700",
+  error:     "bg-red-900/60    text-red-300    border-red-700",
+  failed:    "bg-red-900/60    text-red-300    border-red-700",
+  cancelled: "bg-slate-700     text-slate-300  border-slate-600",
+};
+
+function badge(status) {
+  const cls = statusColors[status] ?? statusColors.cancelled;
+  return `<span class="inline-flex items-center border rounded-full px-2 py-0.5 text-xs font-medium ${cls}">${status}</span>`;
+}
+
+function trunc(str, n = 8) { return str ? str.slice(0, n) + "…" : "—"; }
+
+function fmtDate(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
+}
+
+function showError(elId, msg) {
+  const el = document.getElementById(elId);
+  el.textContent = msg; el.classList.remove("hidden");
+}
+function clearError(elId) {
+  const el = document.getElementById(elId);
+  el.textContent = ""; el.classList.add("hidden");
+}
+
+// ── Active Task Cards ─────────────────────────────────────────────────────────
+const activeTasks = {};
+
+function renderActiveCard(task) {
+  const id = task.id || task.task_id;
+  const st = task.status || "pending";
+
+  let card = document.getElementById(`card-${id}`);
+  if (!card) {
+    card = document.createElement("div");
+    card.id = `card-${id}`;
+    card.className = "task-card bg-slate-800 border border-slate-700 rounded-xl p-5 space-y-3";
+    document.getElementById("active-tasks").appendChild(card);
+    document.getElementById("no-active").classList.add("hidden");
+  }
+
+  card.innerHTML = `
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0 space-y-0.5">
+        <p class="font-medium text-slate-100 truncate">${escHtml(task.topic) || "Untitled"}</p>
+        <p class="text-xs text-slate-500 font-mono">${escHtml(id)}</p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        ${badge(st)}
+        <button onclick="deleteTask('${id}')"
+          class="text-slate-500 hover:text-red-400 transition-colors text-xs border border-slate-600 hover:border-red-700 rounded px-2 py-1">
+          Delete
+        </button>
+      </div>
+    </div>
+    <textarea id="log-${id}" readonly rows="6"
+      class="log-area w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300 resize-none focus:outline-none"
+      placeholder="Waiting for events…"></textarea>
+  `;
+
+  const state = activeTasks[id];
+  if (state && state.log) {
+    const ta = document.getElementById(`log-${id}`);
+    if (ta) ta.value = state.log;
+  }
+
+  return card;
+}
+
+function appendLog(id, line) {
+  const state = activeTasks[id];
+  if (state) state.log = (state.log || "") + line + "\n";
+  const ta = document.getElementById(`log-${id}`);
+  if (ta) { ta.value += line + "\n"; ta.scrollTop = ta.scrollHeight; }
+}
+
+function updateCardStatus(id, status) {
+  const card = document.getElementById(`card-${id}`);
+  if (!card) return;
+  const badgeEl = card.querySelector("span.inline-flex");
+  if (badgeEl) {
+    const cls = statusColors[status] ?? statusColors.cancelled;
+    badgeEl.className = `inline-flex items-center border rounded-full px-2 py-0.5 text-xs font-medium ${cls}`;
+    badgeEl.textContent = status;
+  }
+  if (status === "done" || status === "completed") {
+    const videoUrl = `${API_BASE}/output/${id}/output.mp4`;
+    if (!card.querySelector(".video-link-row")) {
+      const row = document.createElement("div");
+      row.className = "video-link-row flex items-center gap-2 pt-1";
+      row.innerHTML = `
+        <a href="${videoUrl}" target="_blank"
+           class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
+          ▶ Watch Video
+        </a>
+        <span class="text-slate-500 text-xs font-mono truncate">${videoUrl}</span>`;
+      card.appendChild(row);
+    }
+  }
+  if (["done","completed","error","failed","cancelled"].includes(status)) {
+    setTimeout(() => { removeActiveCard(id); loadHistory(); }, 3000);
+  }
+}
+
+function removeActiveCard(id) {
+  const card = document.getElementById(`card-${id}`);
+  if (card) card.remove();
+  if (activeTasks[id]) {
+    clearTimeout(activeTasks[id].reconnectTimer);
+    if (activeTasks[id].ws) activeTasks[id].ws.close();
+    delete activeTasks[id];
+  }
+  if (Object.keys(activeTasks).length === 0)
+    document.getElementById("no-active").classList.remove("hidden");
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+function connectWS(task) {
+  const id = task.id || task.task_id;
+  const state = activeTasks[id];
+  if (!state) return;
+
+  const token = getToken();
+  const wsUrl = `${WS_BASE}/api/v1/ws/tasks/${id}${token ? `?token=${token}` : ""}`;
+  const ws = new WebSocket(wsUrl);
+  state.ws = ws;
+
+  ws.onopen  = () => appendLog(id, "[connected]");
+  ws.onerror = () => appendLog(id, "[connection error]");
+
+  ws.onmessage = (evt) => {
+    let ev;
+    try { ev = JSON.parse(evt.data); } catch { return; }
+    const stage   = ev.stage   ? `[${ev.stage}] ` : "";
+    const message = ev.message || JSON.stringify(ev);
+    appendLog(id, `${stage}${message}`);
+
+    if (ev.type === "progress" && ev.status) updateCardStatus(id, ev.status);
+    if (ev.type === "done")  { updateCardStatus(id, "done");  ws.close(); }
+    if (ev.type === "error") { updateCardStatus(id, "error"); ws.close(); }
+  };
+
+  ws.onclose = (evt) => {
+    appendLog(id, "[disconnected]");
+    // 4401 = server rejected due to missing/invalid auth — don't retry
+    if (evt.code === 4401) {
+      appendLog(id, "[auth rejected — please sign in again]");
+      clearSession();
+      showLogin();
+      return;
+    }
+    const st = state.status;
+    const MAX_RETRIES = 5;
+    if ((st === "pending" || st === "running" || st === "queued") && state.retries < MAX_RETRIES) {
+      state.retries = (state.retries || 0) + 1;
+      state.reconnectTimer = setTimeout(() => {
+        if (activeTasks[id]) { appendLog(id, `[reconnecting… attempt ${state.retries}]`); connectWS(task); }
+      }, 3000);
+    } else if (state.retries >= MAX_RETRIES) {
+      appendLog(id, "[gave up reconnecting — check task status in History]");
+    }
+  };
+}
+
+function trackTask(task) {
+  const id = task.id || task.task_id;
+  if (activeTasks[id]) return;
+  activeTasks[id] = { log: "", ws: null, reconnectTimer: null, status: task.status || "pending", retries: 0 };
+  renderActiveCard(task);
+  connectWS(task);
+}
+
+// ── Auto-switch aspect ratio when Reels is selected ───────────────────────────
+document.getElementById("style").addEventListener("change", function () {
+  const ar = document.getElementById("aspect_ratio");
+  if (this.value === "reels") {
+    ar.value = "9:16";
+  } else if (ar.value === "9:16" && this.value !== "reels") {
+    ar.value = "16:9";
+  }
+});
+
+// ── Generate Form ─────────────────────────────────────────────────────────────
+document.getElementById("submit-btn").addEventListener("click", async () => {
+  clearError("form-error");
+  const topic        = document.getElementById("topic").value.trim();
+  const duration     = parseInt(document.getElementById("duration").value, 10);
+  const style        = document.getElementById("style").value;
+  const aspect_ratio = document.getElementById("aspect_ratio").value;
+
+  if (!topic) { showError("form-error", "Topic is required."); return; }
+  if (isNaN(duration) || duration < 10 || duration > 300) {
+    showError("form-error", "Duration must be between 10 and 300 seconds.");
+    return;
+  }
+
+  const btn = document.getElementById("submit-btn");
+  const spinner = document.getElementById("submit-spinner");
+  btn.disabled = true; spinner.classList.remove("hidden");
+
+  try {
+    const body = { topic, duration_seconds: duration, aspect_ratio };
+    if (style) body.style = style;
+
+    const res = await apiFetch(`${API_BASE}/api/v1/generate-video`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || err.message || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    trackTask({ id: data.task_id, task_id: data.task_id, topic, status: "pending" });
+    document.getElementById("topic").value        = "";
+    document.getElementById("duration").value     = "60";
+    document.getElementById("style").value        = "";
+    document.getElementById("aspect_ratio").value = "16:9";
+  } catch (e) {
+    showError("form-error", e.message);
+  } finally {
+    btn.disabled = false; spinner.classList.add("hidden");
+  }
+});
+
+// ── Retry / Delete ────────────────────────────────────────────────────────────
+async function retryTask(id) {
+  try {
+    const res = await apiFetch(`${API_BASE}/api/v1/tasks/${id}/retry`, { method: "POST" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert("Retry failed: " + (err.detail || `HTTP ${res.status}`));
+      return;
+    }
+    const data = await res.json();
+    trackTask({ id: data.task_id, task_id: data.task_id, status: "pending" });
+    loadHistory();
+  } catch (e) { alert("Retry failed: " + e.message); }
+}
+
+async function deleteTask(id) {
+  try {
+    await apiFetch(`${API_BASE}/api/v1/tasks/${id}`, { method: "DELETE" });
+    removeActiveCard(id);
+    loadHistory();
+  } catch (e) { console.error("Delete failed:", e); }
+}
+
+// ── History Table ─────────────────────────────────────────────────────────────
+let historyPage = 1;
+const PAGE_SIZE = 20;
+
+async function loadHistory() {
+  clearError("history-error");
+  const spinner = document.getElementById("refresh-spinner");
+  if (spinner) spinner.classList.remove("hidden");
+
+  try {
+    const res = await apiFetch(`${API_BASE}/api/v1/tasks?page=${historyPage}&page_size=${PAGE_SIZE}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data  = await res.json();
+    renderHistory(data.items ?? [], data.total ?? 0);
+  } catch (e) {
+    showError("history-error", "Failed to load task history: " + e.message);
+    renderHistory([], 0);
+  } finally {
+    if (spinner) spinner.classList.add("hidden");
+  }
+}
+
+function renderHistory(items, total) {
+  const tbody = document.getElementById("history-body");
+  if (items.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-6 text-center text-slate-500">No tasks found.</td></tr>`;
+  } else {
+    tbody.innerHTML = items.map(t => {
+      const id = t.id || t.task_id;
+      return `
+        <tr class="border-b border-slate-700/50 hover:bg-slate-700/40 cursor-pointer transition-colors"
+            onclick="focusTask('${id}')">
+          <td class="px-4 py-3 font-mono text-slate-400 text-xs">${escHtml(trunc(id, 8))}</td>
+          <td class="px-4 py-3 text-slate-200 max-w-xs truncate">${escHtml(t.topic) || "—"}</td>
+          <td class="px-4 py-3 text-slate-400 text-xs">${t.style ? escHtml(t.style.replace("_", " ")) : "—"}</td>
+          <td class="px-4 py-3">${badge(t.status)}</td>
+          <td class="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">${fmtDate(t.created_at)}</td>
+          <td class="px-4 py-3">
+            ${t.status === "done" || t.status === "completed"
+              ? `<a href="${API_BASE}/output/${id}/output.mp4" target="_blank"
+                   class="text-indigo-400 hover:text-indigo-300 text-xs font-medium"
+                   onclick="event.stopPropagation()">▶ Watch</a>`
+              : (t.status === "failed" || t.status === "error" || t.status === "cancelled")
+              ? `<button onclick="event.stopPropagation(); retryTask('${id}')"
+                   class="text-xs font-medium text-amber-400 hover:text-amber-300 border border-amber-700 hover:border-amber-500 rounded px-2 py-0.5 transition-colors">
+                   ↺ Retry</button>`
+              : `<span class="text-slate-600 text-xs">—</span>`}
+          </td>
+        </tr>`;
+    }).join("");
+  }
+
+  const pages  = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pagDiv = document.getElementById("pagination");
+  if (total > PAGE_SIZE) {
+    pagDiv.innerHTML = `
+      <button onclick="changePage(-1)" ${historyPage <= 1 ? "disabled" : ""}
+        class="px-3 py-1 rounded border border-slate-600 hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">← Prev</button>
+      <span>Page ${historyPage} of ${pages} · ${total} tasks</span>
+      <button onclick="changePage(1)" ${historyPage >= pages ? "disabled" : ""}
+        class="px-3 py-1 rounded border border-slate-600 hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next →</button>`;
+  } else {
+    pagDiv.innerHTML = total ? `<span>${total} task${total === 1 ? "" : "s"}</span>` : "";
+  }
+}
+
+function changePage(delta) { historyPage = Math.max(1, historyPage + delta); loadHistory(); }
+
+function focusTask(id) {
+  const card = document.getElementById(`card-${id}`);
+  if (card) {
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    card.classList.add("ring-2", "ring-indigo-500");
+    setTimeout(() => card.classList.remove("ring-2", "ring-indigo-500"), 1500);
+  }
+}
+
+document.getElementById("refresh-btn").addEventListener("click", () => { historyPage = 1; loadHistory(); });
+
+// ── Users Management ──────────────────────────────────────────────────────────
+async function loadUsers() {
+  clearError("users-error");
+  try {
+    const res = await apiFetch(`${API_BASE}/api/v1/users`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const users = await res.json();
+    renderUsers(users);
+  } catch (e) {
+    showError("users-error", "Failed to load users: " + e.message);
+  }
+}
+
+function renderUsers(users) {
+  const tbody = document.getElementById("users-body");
+  if (users.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-6 text-center text-slate-500">No users found.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = users.map(u => `
+    <tr class="border-b border-slate-700/50 hover:bg-slate-700/40 transition-colors">
+      <td class="px-4 py-3 text-slate-200 font-medium">${escHtml(u.username)}</td>
+      <td class="px-4 py-3">
+        <span class="inline-flex items-center border rounded-full px-2 py-0.5 text-xs font-medium ${u.role === 'admin' ? 'bg-purple-900/60 text-purple-300 border-purple-700' : 'bg-slate-700 text-slate-300 border-slate-600'}">
+          ${escHtml(u.role)}
+        </span>
+      </td>
+      <td class="px-4 py-3">
+        <span class="inline-flex items-center border rounded-full px-2 py-0.5 text-xs font-medium ${u.is_active ? 'bg-green-900/60 text-green-300 border-green-700' : 'bg-red-900/60 text-red-300 border-red-700'}">
+          ${u.is_active ? "active" : "disabled"}
+        </span>
+      </td>
+      <td class="px-4 py-3">
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs text-slate-300 font-mono w-10 text-right">
+            ${u.daily_limit != null ? escHtml(String(u.daily_limit)) : '∞'}
+          </span>
+          <input type="number" min="1" placeholder="∞"
+            id="limit-${u.id}"
+            value="${u.daily_limit != null ? u.daily_limit : ''}"
+            class="w-16 bg-slate-700 border border-slate-600 rounded px-2 py-0.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500" />
+          <button onclick="setUserLimit('${u.id}')"
+            class="text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-700 hover:border-indigo-500 rounded px-2 py-0.5 transition-colors">
+            Set
+          </button>
+        </div>
+      </td>
+      <td class="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">${fmtDate(u.created_at)}</td>
+      <td class="px-4 py-3">
+        <div class="flex items-center gap-2">
+          ${u.id !== currentUser.id ? `
+            <button onclick="toggleUser('${u.id}', ${!u.is_active})"
+              class="text-xs ${u.is_active ? 'text-amber-400 hover:text-amber-300 border-amber-700 hover:border-amber-500' : 'text-green-400 hover:text-green-300 border-green-700 hover:border-green-500'} border rounded px-2 py-0.5 transition-colors">
+              ${u.is_active ? "Disable" : "Enable"}
+            </button>
+            <button onclick="promoteUser('${u.id}', '${u.role === 'admin' ? 'user' : 'admin'}')"
+              class="text-xs text-slate-400 hover:text-slate-200 border border-slate-600 hover:border-slate-400 rounded px-2 py-0.5 transition-colors">
+              → ${u.role === 'admin' ? 'User' : 'Admin'}
+            </button>
+          ` : `<span class="text-xs text-slate-600 italic">you</span>`}
+        </div>
+      </td>
+    </tr>`).join("");
+}
+
+async function setUserLimit(id) {
+  const input = document.getElementById(`limit-${id}`);
+  const val = input ? input.value.trim() : "";
+  // Empty = remove limit (null), otherwise parse int
+  const daily_limit = val === "" ? null : parseInt(val, 10);
+  if (val !== "" && (isNaN(daily_limit) || daily_limit < 1)) {
+    alert("Daily limit must be a positive integer, or leave blank for unlimited.");
+    return;
+  }
+  try {
+    const res = await apiFetch(`${API_BASE}/api/v1/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ daily_limit }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    loadUsers();
+  } catch (e) { alert("Failed to set limit: " + e.message); }
+}
+
+async function toggleUser(id, activate) {
+  try {
+    const res = await apiFetch(`${API_BASE}/api/v1/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ is_active: activate }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    loadUsers();
+  } catch (e) { alert("Failed: " + e.message); }
+}
+
+async function promoteUser(id, role) {
+  try {
+    const res = await apiFetch(`${API_BASE}/api/v1/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    loadUsers();
+  } catch (e) { alert("Failed: " + e.message); }
+}
+
+// Add user form
+document.getElementById("add-user-btn").addEventListener("click", () => {
+  document.getElementById("add-user-form").classList.remove("hidden");
+  document.getElementById("new-username").focus();
+});
+
+document.getElementById("cancel-user-btn").addEventListener("click", () => {
+  document.getElementById("add-user-form").classList.add("hidden");
+  clearError("add-user-error");
+  document.getElementById("new-username").value = "";
+  document.getElementById("new-password").value = "";
+  document.getElementById("new-role").value = "user";
+});
+
+document.getElementById("save-user-btn").addEventListener("click", async () => {
+  clearError("add-user-error");
+  const username = document.getElementById("new-username").value.trim();
+  const password = document.getElementById("new-password").value;
+  const role     = document.getElementById("new-role").value;
+
+  if (!username || !password) {
+    showError("add-user-error", "Username and password are required.");
+    return;
+  }
+
+  const btn     = document.getElementById("save-user-btn");
+  const spinner = document.getElementById("save-user-spinner");
+  btn.disabled  = true;
+  spinner.classList.remove("hidden");
+
+  try {
+    const res = await apiFetch(`${API_BASE}/api/v1/users`, {
+      method: "POST",
+      body: JSON.stringify({ username, password, role }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    document.getElementById("cancel-user-btn").click();
+    loadUsers();
+  } catch (e) {
+    showError("add-user-error", e.message);
+  } finally {
+    btn.disabled = false;
+    spinner.classList.add("hidden");
+  }
+});
+
+// ── Reconnect active tasks on page load ───────────────────────────────────────
+async function reconnectActiveTasks() {
+  try {
+    const res = await apiFetch(`${API_BASE}/api/v1/tasks?page=1&page_size=100`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+    (data.items ?? [])
+      .filter(t => {
+        const active = t.status === "queued" || t.status === "pending" || t.status === "running";
+        // Only reconnect tasks updated within the last 2 hours to avoid
+        // surfacing stale stuck tasks from old sessions.
+        const recent = t.updated_at && new Date(t.updated_at).getTime() > twoHoursAgo;
+        return active && recent;
+      })
+      .forEach(t => trackTask(t));
+  } catch { /* silently ignore */ }
+}
+
+// ── Change Password Modal ─────────────────────────────────────────────────────
+function openChangePw() {
+  document.getElementById("cp-current").value = "";
+  document.getElementById("cp-new").value = "";
+  document.getElementById("cp-confirm").value = "";
+  clearError("change-pw-error");
+  document.getElementById("change-pw-success").classList.add("hidden");
+  document.getElementById("change-pw-modal").classList.remove("hidden");
+  document.getElementById("cp-current").focus();
+}
+
+function closeChangePw() {
+  document.getElementById("change-pw-modal").classList.add("hidden");
+}
+
+document.getElementById("change-pw-btn").addEventListener("click", openChangePw);
+document.getElementById("cp-cancel-btn").addEventListener("click", closeChangePw);
+
+// Close on backdrop click
+document.getElementById("change-pw-modal").addEventListener("click", e => {
+  if (e.target === e.currentTarget) closeChangePw();
+});
+
+document.getElementById("cp-save-btn").addEventListener("click", async () => {
+  clearError("change-pw-error");
+  document.getElementById("change-pw-success").classList.add("hidden");
+
+  const current = document.getElementById("cp-current").value;
+  const newPw   = document.getElementById("cp-new").value;
+  const confirm = document.getElementById("cp-confirm").value;
+
+  if (!current || !newPw || !confirm) {
+    showError("change-pw-error", "All fields are required.");
+    return;
+  }
+  if (newPw.length < 8) {
+    showError("change-pw-error", "New password must be at least 8 characters.");
+    return;
+  }
+  if (newPw !== confirm) {
+    showError("change-pw-error", "Passwords do not match.");
+    return;
+  }
+
+  const btn     = document.getElementById("cp-save-btn");
+  const spinner = document.getElementById("cp-spinner");
+  btn.disabled  = true;
+  spinner.classList.remove("hidden");
+
+  try {
+    const res = await apiFetch(`${API_BASE}/api/v1/auth/change-password`, {
+      method: "POST",
+      body: JSON.stringify({ current_password: current, new_password: newPw }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    document.getElementById("change-pw-success").classList.remove("hidden");
+    document.getElementById("cp-current").value = "";
+    document.getElementById("cp-new").value = "";
+    document.getElementById("cp-confirm").value = "";
+    setTimeout(closeChangePw, 1500);
+  } catch (e) {
+    showError("change-pw-error", e.message);
+  } finally {
+    btn.disabled = false;
+    spinner.classList.add("hidden");
+  }
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+(async function init() {
+  loadSession();
+  if (!getToken()) {
+    showLogin();
+    return;
+  }
+  // Validate existing token by calling /me
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/auth/me`, {
+      headers: { "Authorization": `Bearer ${getToken()}` },
+    });
+    if (!res.ok) throw new Error("invalid token");
+    const user = await res.json();
+    // Refresh currentUser from server (role may have changed)
+    currentUser = { id: user.id, username: user.username, role: user.role };
+    localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+    showApp();
+    loadHistory();
+    reconnectActiveTasks();
+  } catch {
+    clearSession();
+    showLogin();
+  }
+})();
+</script>
+</body>
+</html>

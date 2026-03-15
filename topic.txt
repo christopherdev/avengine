@@ -1,0 +1,26 @@
+1. Best topics for this engine
+Good fits (factual, visual, B-roll-rich):
+
+Technology: "How AI chips are made", "The rise of quantum computing"
+Business/Finance: "Why inflation happens", "How Tesla disrupted car manufacturing"
+Science: "How CRISPR gene editing works", "The James Webb telescope discoveries"
+History: "The fall of the Berlin Wall", "How the internet was invented"
+Nature/Environment: "Why coral reefs are dying", "How wildfires spread"
+
+
+2. How to write a good topic description
+The topic field goes directly into the ideation prompt. More detail = better script.
+
+Weak:
+
+"AI"
+
+Strong:
+
+"How large language models like GPT-4 are trained — covering data collection, compute costs, and what makes them hallucinate, for a tech-curious audience"
+
+Template:
+
+[What it's about] — covering [key angle 1], [key angle 2], and [key angle 3], for [target audience]
+
+The target_audience field also helps — e.g. "tech-curious general public" vs "software engineers" vs "high school students" will change the tone and vocabulary the writer uses.

@@ -1,0 +1,114 @@
+services:
+  api:
+    build:
+      context: .
+      target: runtime
+    ports:
+      - "20000:20000"
+    env_file: /etc/avengine/dev.env
+    volumes:
+      - ./src:/app/src:ro          # live-reload in dev
+    tmpfs:
+      - /tmp:size=512M
+      - /run:size=64K
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    user: "10001:10001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    command: >
+      uvicorn src.main:app
+        --host 0.0.0.0
+        --port 20000
+        --reload
+        --reload-dir /app/src
+
+  worker:
+    build:
+      context: .
+      target: runtime
+    env_file: /etc/avengine/dev.env
+    volumes:
+      - ./src:/app/src:ro
+    tmpfs:
+      - /tmp:size=2G
+      - /run:size=64K
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    user: "10001:10001"
+    depends_on:
+      - redis
+      - postgres
+    command: >
+      celery -A src.core.celery_app worker
+        --loglevel=info
+        --concurrency=4
+        --queues=pipeline,render
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_DB: avengine
+      POSTGRES_USER: avengine
+      POSTGRES_PASSWORD: avengine
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U avengine"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    # Postgres needs some caps to manage its own process,
+    # but we can at least use no-new-privileges.
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    command: redis-server --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    read_only: true
+    tmpfs:
+      - /data:size=64M
+      - /run:size=64K
+    # Redis alpine runs as 'redis' user by default.
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  pg_data:
+  qdrant_data:
